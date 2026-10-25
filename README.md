@@ -34,8 +34,10 @@ Node 20 or newer.
 ## Deploying to GitHub Pages
 
 1. Push this repository to GitHub.
-2. In the repository, open **Settings → Pages** and set **Source** to **GitHub Actions**.
-3. Every push to `main` runs type checks, tests and the build, then publishes the site. The address is shown in the Actions run and in Settings → Pages (for this repo: `https://<user>.github.io/paint/`).
+2. In the repository, open **Settings → Pages**: **Source** = Deploy from a branch, **Branch** = `gh-pages`, folder `/ (root)`.
+3. Every push to `main` runs type checks, tests and the build, then publishes `dist/` to the `gh-pages` branch (for this repo: `https://<user>.github.io/paint/`).
+
+Do not point Pages at `main`: that branch holds source code, which browsers can't run directly (you'd see a blank page).
 
 The build uses relative paths, so it also works on a custom domain or any static host (Netlify, Vercel, Cloudflare Pages, cPanel).
 

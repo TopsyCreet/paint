@@ -1,0 +1,24 @@
+{
+  "name": "Colour Studio",
+  "shortName": "Colour Studio",
+  "tagline": "See your walls in any colour before you buy.",
+  "sampleDataNotice": "Sample catalogue: colours, prices and distributors are placeholders until the paint brand's data is loaded.",
+  "madeBy": "Veil Technologies",
+  "colours": {
+    "primary": "#4B37BF",
+    "primaryInk": "#FFFFFF"
+  },
+  "currency": "NGN",
+  "locale": "en-NG",
+  "whatsappFallback": "",
+  "disclaimer": "Colours on screen are a guide and vary between phones and lighting. Check a physical colour card or sample pot before you buy.",
+  "segmentation": {
+    "modelUrl": "https://storage.googleapis.com/mediapipe-models/interactive_segmenter/magic_touch/float32/1/magic_touch.tflite",
+    "wasmBase": "vendor/mediapipe/wasm",
+    "enabled": true
+  },
+  "analytics": {
+    "provider": "none",
+    "id": ""
+  }
+}

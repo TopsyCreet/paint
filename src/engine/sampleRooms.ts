@@ -68,13 +68,14 @@ function plant(g: Ctx, x: number, baseY: number, scale = 1, pot = "#B0613C") {
   poly(g, [[x - 50 * scale, baseY - 110 * scale], [x + 52 * scale, baseY - 110 * scale], [x + 38 * scale, baseY], [x - 36 * scale, baseY]], pot);
 }
 
-function livingRoom(): HTMLCanvasElement {
+/** `wall` overrides the back-wall colour (used to make ground-truth masks in tests). */
+export function livingRoom(wall = "#E8E2D8"): HTMLCanvasElement {
   const W = 1600, H = 1080, BX0 = 380, BX1 = 1220, BY0 = 120, BY1 = 760;
   const [c, g] = canvas(W, H);
   let gr = g.createLinearGradient(0, 0, 0, BY0);
   gr.addColorStop(0, "#EDEBE6"); gr.addColorStop(1, "#F6F4EF");
   poly(g, [[0, 0], [W, 0], [BX1, BY0], [BX0, BY0]], gr);
-  poly(g, [[BX0, BY0], [BX1, BY0], [BX1, BY1], [BX0, BY1]], "#E8E2D8");
+  poly(g, [[BX0, BY0], [BX1, BY0], [BX1, BY1], [BX0, BY1]], wall);
   gr = g.createLinearGradient(BX0, 0, BX1, 0);
   gr.addColorStop(0, "rgba(255,250,240,0.22)"); gr.addColorStop(0.55, "rgba(255,250,240,0)"); gr.addColorStop(1, "rgba(30,20,10,0.12)");
   poly(g, [[BX0, BY0], [BX1, BY0], [BX1, BY1], [BX0, BY1]], gr);
@@ -277,7 +278,7 @@ function exterior(): HTMLCanvasElement {
 }
 
 export const SAMPLE_ROOMS: SampleRoom[] = [
-  { id: "living", name: "Living room", draw: livingRoom, preset: [{ shadeId: "okra-green", seeds: [[0.34, 0.26], [0.7, 0.2]] }] },
+  { id: "living", name: "Living room", draw: () => livingRoom(), preset: [{ shadeId: "okra-green", seeds: [[0.34, 0.26], [0.7, 0.2]] }] },
   { id: "bedroom", name: "Bedroom", draw: bedroom, preset: [{ shadeId: "lavender-gele", seeds: [[0.25, 0.4], [0.75, 0.2]] }] },
   { id: "exterior", name: "House front", draw: exterior, preset: [{ shadeId: "lekki-sand", seeds: [[0.2, 0.72], [0.53, 0.38], [0.66, 0.72]] }] },
 ];

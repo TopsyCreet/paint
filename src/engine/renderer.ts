@@ -10,6 +10,8 @@ export interface SurfaceLayer {
   finish: Finish;
   /** Median linear luminance of the original surface; paint is scaled relative to it. */
   base: number;
+  /** Mean chromaticity (r, g, b / sum) of the original wall, for edge refinement. */
+  chroma?: [number, number, number] | null;
 }
 
 const FINISH_SHEEN: Record<Finish, number> = { matt: 0, satin: 0.06, silk: 0.1, gloss: 0.2 };
@@ -35,6 +37,9 @@ uniform float uSplit;
 uniform float uLine;
 uniform float uHighlight;
 uniform int uSelected;
+uniform mat3 uMaskXf;
+uniform vec3 uChroma[${MAX_SURFACES}];
+uniform float uRefine;
 varying vec2 vUv;
 
 vec3 toLin(vec3 c) { return pow(max(c, 0.0), vec3(2.2)); }
@@ -48,11 +53,16 @@ vec3 paint(vec3 col, float Y, float base, float sheen) {
 }
 
 void main() {
-  vec3 src = toLin(texture2D(uImg, vUv).rgb);
+  vec3 srgb = texture2D(uImg, vUv).rgb;
+  vec3 src = toLin(srgb);
   float Y = dot(src, vec3(0.2126, 0.7152, 0.0722));
-  vec2 muv = vec2(vUv.x, 1.0 - vUv.y);
-  vec4 ma = texture2D(uMaskA, muv);
-  vec4 mb = texture2D(uMaskB, muv);
+  // Mask coordinates follow the camera: uMaskXf maps this frame to the mask's frame.
+  vec2 muv = (uMaskXf * vec3(vUv.x, 1.0 - vUv.y, 1.0)).xy;
+  float inside = step(0.0, muv.x) * step(muv.x, 1.0) * step(0.0, muv.y) * step(muv.y, 1.0);
+  vec4 ma = texture2D(uMaskA, muv) * inside;
+  vec4 mb = texture2D(uMaskB, muv) * inside;
+  vec3 chroma = srgb / (srgb.r + srgb.g + srgb.b + 0.0001);
+  float lit = smoothstep(0.01, 0.06, Y);
   float m[${MAX_SURFACES}];
   m[0] = ma.r; m[1] = ma.g; m[2] = ma.b; m[3] = ma.a;
   m[4] = mb.r; m[5] = mb.g; m[6] = mb.b; m[7] = mb.a;
@@ -60,6 +70,12 @@ void main() {
   float sel = 0.0;
   for (int i = 0; i < ${MAX_SURFACES}; i++) {
     float a = m[i] * uActive[i];
+    // Edge refinement at full resolution: fade paint on pixels whose colour
+    // differs from the wall's own colour (doors, frames, furniture at the border).
+    if (uRefine > 0.0 && a > 0.0 && uChroma[i].x > 0.0) {
+      float sim = 1.0 - smoothstep(0.05, 0.13, distance(chroma, uChroma[i]));
+      a *= mix(1.0, mix(1.0, sim, lit), uRefine);
+    }
     o = mix(o, paint(uColor[i], Y, uBase[i], uSheen[i]), a);
     if (i == uSelected) sel = a;
   }
@@ -112,6 +128,9 @@ export class PaintRenderer {
         uLine: { value: 0.002 },
         uHighlight: { value: 0 },
         uSelected: { value: 0 },
+        uMaskXf: { value: new THREE.Matrix3() },
+        uChroma: { value: Array.from({ length: MAX_SURFACES }, () => new THREE.Vector3(0, 0, 0)) },
+        uRefine: { value: 0.9 },
       },
       vertexShader: VERT,
       fragmentShader: FRAG,
@@ -190,6 +209,8 @@ export class PaintRenderer {
       (u.uColor.value[s] as THREE.Vector3).set(Math.pow(r / 255, 2.2), Math.pow(g / 255, 2.2), Math.pow(bl / 255, 2.2));
       u.uBase.value[s] = layer.base;
       u.uSheen.value[s] = FINISH_SHEEN[layer.finish] ?? 0;
+      const c = layer.chroma;
+      (u.uChroma.value[s] as THREE.Vector3).set(c ? c[0] : 0, c ? c[1] : 0, c ? c[2] : 0);
       if (!layer.mask || layer.mask.length !== w * h) continue;
       const m = layer.mask;
       for (let y = 0; y < h; y++) {
@@ -208,6 +229,15 @@ export class PaintRenderer {
     }
     this.maskTex![0].needsUpdate = true;
     this.maskTex![1].needsUpdate = true;
+  }
+
+  /** Affine (normalised, y down) mapping the displayed frame to mask coordinates. */
+  setMaskTransform(m: [number, number, number, number, number, number]) {
+    (this.material.uniforms.uMaskXf.value as THREE.Matrix3).set(m[0], m[1], m[2], m[3], m[4], m[5], 0, 0, 1);
+  }
+
+  setRefine(amount: number) {
+    this.material.uniforms.uRefine.value = amount;
   }
 
   setCompare(on: boolean, split: number) {

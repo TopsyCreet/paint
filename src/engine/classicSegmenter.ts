@@ -160,10 +160,60 @@ export function fillSmallHoles(m: Uint8Array, w: number, h: number, maxFraction 
   }
 }
 
+/**
+ * Keeps only connected regions that contain a seed (or the region nearest to a
+ * seed within `searchRadius` pixels). Removes floating specks the AI model
+ * sometimes adds elsewhere in the frame.
+ */
+export function keepSeedRegions(m: Uint8Array, w: number, h: number, seeds: Array<[number, number]>, searchRadius = 6): Uint8Array {
+  const out = new Uint8Array(m.length);
+  const stack = new Int32Array(m.length);
+  for (const [nx, ny] of seeds) {
+    let sx = Math.min(w - 1, Math.max(0, Math.floor(nx * w)));
+    let sy = Math.min(h - 1, Math.max(0, Math.floor(ny * h)));
+    if (!m[sy * w + sx]) {
+      let found = false;
+      for (let r = 1; r <= searchRadius && !found; r++) {
+        for (let dy = -r; dy <= r && !found; dy++) for (let dx = -r; dx <= r; dx++) {
+          const x = sx + dx, y = sy + dy;
+          if (x >= 0 && y >= 0 && x < w && y < h && m[y * w + x]) { sx = x; sy = y; found = true; break; }
+        }
+      }
+      if (!found) continue;
+    }
+    const s = sy * w + sx;
+    if (out[s]) continue;
+    let sp = 0;
+    stack[sp++] = s;
+    out[s] = 1;
+    while (sp) {
+      const p = stack[--sp];
+      const x = p % w, y = (p - x) / w;
+      if (x > 0 && m[p - 1] && !out[p - 1]) { out[p - 1] = 1; stack[sp++] = p - 1; }
+      if (x < w - 1 && m[p + 1] && !out[p + 1]) { out[p + 1] = 1; stack[sp++] = p + 1; }
+      if (y > 0 && m[p - w] && !out[p - w]) { out[p - w] = 1; stack[sp++] = p - w; }
+      if (y < h - 1 && m[p + w] && !out[p + w]) { out[p + w] = 1; stack[sp++] = p + w; }
+    }
+  }
+  return out;
+}
+
+/** Thresholds a soft mask, closes small gaps, fills holes and keeps the seeded regions. */
+export function cleanMask(soft: Float32Array, w: number, h: number, seeds: Array<[number, number]>, threshold = 0.5): Float32Array {
+  let m: Uint8Array = new Uint8Array(soft.length);
+  for (let i = 0; i < soft.length; i++) m[i] = soft[i] > threshold ? 1 : 0;
+  m = erode(dilate(m, w, h), w, h);
+  fillSmallHoles(m, w, h, 0.02);
+  m = keepSeedRegions(m, w, h, seeds);
+  const f = new Float32Array(m.length);
+  for (let i = 0; i < m.length; i++) f[i] = m[i];
+  return f;
+}
+
 /** Full classic pipeline: grow, close small gaps, fill holes. Returns a 0–1 mask. */
 export function classicMask(frame: Frame, seeds: Array<[number, number]>, spread: number): Float32Array {
   const { width: w, height: h } = frame;
-  let m = growRegion(frame, seeds, spread);
+  let m: Uint8Array = growRegion(frame, seeds, spread);
   m = erode(dilate(m, w, h), w, h);
   fillSmallHoles(m, w, h);
   const f = new Float32Array(m.length);

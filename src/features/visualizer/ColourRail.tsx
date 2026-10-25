@@ -3,7 +3,7 @@ import { useApplyShade } from "../colours/useApplyShade";
 
 /** Quick colour strip under the stage on phones. */
 export function ColourRail() {
-  const { cat, session, recent, favourites, shade, setTab } = useStore();
+  const { cat, session, recent, favourites, shade } = useStore();
   const st = useSessionState(session);
   const apply = useApplyShade();
   const current = st.surfaces[st.selected]?.shadeId;
@@ -16,13 +16,13 @@ export function ColourRail() {
     <section className="rail-wrap" aria-label="Quick colours">
       <div className="rail-head">
         <span className="eyebrow">Colour for Wall {st.selected + 1}{current && shade(current) ? ` · ${shade(current)!.name}` : ""}</span>
-        <button type="button" className="btn small ghost" onClick={() => setTab("colours")}>All colours</button>
+        <button type="button" className="btn small ghost" onClick={() => document.getElementById("colours")?.scrollIntoView({ behavior: "smooth" })}>All colours</button>
       </div>
       <div className="rail">
         {ids.map((id) => {
           const s = shade(id);
           if (!s) return null;
-          return <button key={id} type="button" style={{ background: s.hex }} aria-label={`${s.name}, ${s.code}`} title={s.name} aria-pressed={current === id} onClick={() => apply(id, { stay: true })} />;
+          return <button key={id} type="button" style={{ background: s.hex }} aria-label={`${s.name}, ${s.code}`} title={s.name} aria-pressed={current === id} onClick={() => apply(id)} />;
         })}
       </div>
     </section>

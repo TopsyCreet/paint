@@ -18,6 +18,7 @@ export class AiSegmenter {
     private modelUrl: string,
     private wasmBase: string,
     enabled: boolean,
+    private fallbackUrl?: string,
   ) {
     if (!enabled) this.status = "disabled";
   }
@@ -42,18 +43,24 @@ export class AiSegmenter {
       const { FilesetResolver, InteractiveSegmenter } = await import("@mediapipe/tasks-vision");
       const base = new URL(this.wasmBase.replace(/\/$/, ""), document.baseURI).href;
       const fileset = await FilesetResolver.forVisionTasks(base);
-      const make = (delegate: "GPU" | "CPU") =>
+      const make = (url: string, delegate: "GPU" | "CPU") =>
         InteractiveSegmenter.createFromOptions(fileset, {
-          baseOptions: { modelAssetPath: this.modelUrl, delegate },
+          baseOptions: { modelAssetPath: new URL(url, document.baseURI).href, delegate },
           outputCategoryMask: false,
           outputConfidenceMasks: true,
         });
-      try {
-        this.seg = await make("GPU");
-      } catch {
-        this.seg = await make("CPU");
+      let lastError: unknown = null;
+      for (const url of [this.modelUrl, this.fallbackUrl].filter((u): u is string => !!u)) {
+        for (const delegate of ["GPU", "CPU"] as const) {
+          try {
+            this.seg = await make(url, delegate);
+            return true;
+          } catch (e) {
+            lastError = e;
+          }
+        }
       }
-      return true;
+      throw lastError ?? new Error("The wall detection model couldn't be loaded.");
     })();
     const timeout = new Promise<boolean>((_, reject) => setTimeout(() => reject(new Error("Timed out loading the wall detection model.")), timeoutMs));
     this.pending = Promise.race([work, timeout])

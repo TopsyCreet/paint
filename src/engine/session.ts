@@ -1,8 +1,8 @@
 import type { Finish } from "../data/types";
 import { AiSegmenter, type AiStatus } from "./aiSegmenter";
-import { analyseFrame, classicMask, type Frame } from "./classicSegmenter";
+import { analyseFrame, classicMask, cleanMask, keepSeedRegions, type Frame } from "./classicSegmenter";
 import { MAX_SURFACES, PaintRenderer, type SurfaceLayer } from "./renderer";
-import { estimateShift, lumaThumb, recentreSeed } from "./tracker";
+import { IDENTITY, applyAffine, composeAffine, estimateMotion, invertAffine, lumaThumb, maskIoU, recentreSeed, warpMask, type Affine } from "./tracker";
 import type { RGB } from "./colour";
 
 export type Detector = "ai" | "classic";
@@ -23,6 +23,11 @@ export interface Surface {
   mask: Float32Array | null;
   base: number;
   method: Detector | "saved";
+  /** Mean chromaticity of the original wall (for edge refinement). */
+  chroma: [number, number, number] | null;
+  /** Live mode: smoothed detection probability, and consecutive rejected detections. */
+  prob?: Float32Array | null;
+  rejects?: number;
 }
 
 export interface SurfaceView {
@@ -79,7 +84,9 @@ type Listener = (s: SessionState) => void;
 
 const MAX_SOURCE = 2048;
 const MAX_ANALYSIS = 512;
-const MAX_LIVE_ANALYSIS = 288;
+const MAX_LIVE_ANALYSIS = 320;
+const THUMB = 96;
+const DETECT_INTERVAL = 100;
 const HISTORY_LIMIT = 30;
 let uid = 0;
 const newId = () => `s${Date.now().toString(36)}${(uid++).toString(36)}`;
@@ -91,6 +98,7 @@ export class PaintSession {
   private analysisCanvas = document.createElement("canvas");
   private actx = this.analysisCanvas.getContext("2d", { willReadFrequently: true })!;
   private frame: Frame | null = null;
+  private rgba: Uint8ClampedArray | null = null;
   private surfaces: Surface[] = [];
   private undoStack: Surface[][] = [];
   private redoStack: Surface[][] = [];
@@ -100,9 +108,15 @@ export class PaintSession {
   // Live camera
   private video: HTMLVideoElement | null = null;
   private liveRaf = 0;
+  private liveVfc = 0;
+  private liveGen = 0;
   private lastTick = 0;
   private robin = 0;
   private prevThumb: Float32Array | null = null;
+  private thumbW = THUMB;
+  private thumbH = 54;
+  /** Maps the displayed camera frame to the frame the masks were computed in. */
+  private liveXf: Affine = IDENTITY;
   private thumbCanvas = document.createElement("canvas");
   private tctx = this.thumbCanvas.getContext("2d", { willReadFrequently: true })!;
   onNotice: (msg: string) => void = () => {};
@@ -115,8 +129,6 @@ export class PaintSession {
       compare: false, split: 0.5, canUndo: false, canRedo: false, detector: ai.status === "disabled" ? "classic" : "ai",
       ai: ai.status, aiError: ai.error, busy: false, aspect: 1.5,
     };
-    this.thumbCanvas.width = 80;
-    this.thumbCanvas.height = 60;
     ai.onChange(() => {
       const upgrade = ai.status === "ready" && this.state.detector === "ai";
       this.patch({ ai: ai.status, aiError: ai.error });
@@ -155,7 +167,7 @@ export class PaintSession {
   get maskH() { return this.analysisCanvas.height; }
 
   private upload() {
-    const layers: SurfaceLayer[] = this.surfaces.map((s) => ({ mask: s.mask, hex: this.hexFor(s.shadeId), finish: s.finish, base: s.base }));
+    const layers: SurfaceLayer[] = this.surfaces.map((s) => ({ mask: s.mask, hex: this.hexFor(s.shadeId), finish: s.finish, base: s.base, chroma: s.chroma }));
     this.renderer.setSurfaces(this.maskW, this.maskH, layers);
     this.renderer.setCompare(this.state.compare, this.state.split);
     this.renderer.requestRender();
@@ -194,6 +206,8 @@ export class PaintSession {
     sctx.drawImage(image, 0, 0, this.sourceCanvas.width, this.sourceCanvas.height);
     this.prepareAnalysis(this.sourceCanvas, this.sourceCanvas.width, this.sourceCanvas.height, MAX_ANALYSIS);
     this.renderer.setImageSource(this.sourceCanvas);
+    this.liveXf = IDENTITY;
+    this.renderer.setMaskTransform(IDENTITY);
     this.undoStack = [];
     this.redoStack = [];
     this.surfaces = preset.length
@@ -214,19 +228,22 @@ export class PaintSession {
     this.actx.imageSmoothingQuality = "high";
     this.actx.drawImage(src, 0, 0, aw, ah);
     const data = this.actx.getImageData(0, 0, aw, ah).data;
+    this.rgba = data;
     this.frame = analyseFrame(data, aw, ah, this.frame ?? undefined);
   }
 
   private blankSurface(shadeId: string, finish: Finish = "matt", seeds: Array<[number, number]> = []): Surface {
-    return { id: newId(), shadeId, finish, seeds: seeds.slice(), seg: null, add: null, erase: null, mask: null, base: 0.5, method: this.state.detector };
+    return { id: newId(), shadeId, finish, seeds: seeds.slice(), seg: null, add: null, erase: null, mask: null, base: 0.5, method: this.state.detector, chroma: null };
   }
 
   // ---------- segmentation ----------
   private detect(seeds: Array<[number, number]>): { mask: Float32Array; method: Detector } | null {
     if (!this.frame || !seeds.length) return null;
+    const w = this.maskW, h = this.maskH;
     if (this.state.detector === "ai" && this.ai.ready) {
       const m = this.ai.segment(this.analysisCanvas, seeds);
-      if (m) return { mask: m, method: "ai" };
+      // The raw model output can be patchy: close gaps, fill holes, drop stray blobs.
+      if (m) return { mask: cleanMask(m, w, h, seeds), method: "ai" };
     }
     return { mask: classicMask(this.frame, seeds, this.state.spread), method: "classic" };
   }
@@ -252,6 +269,21 @@ export class PaintSession {
     for (let i = 0; i < n; i += 7) if (m[i] > 0.5) { any = true; break; }
     s.mask = any ? m : null;
     s.base = this.medianLuminance(m);
+    s.chroma = any ? this.meanChroma(m) : null;
+  }
+
+  /** Average chromaticity (r, g, b divided by their sum) of the original pixels under a mask. */
+  private meanChroma(mask: Float32Array): [number, number, number] | null {
+    const d = this.rgba;
+    if (!d || d.length !== mask.length * 4) return null;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let i = 0; i < mask.length; i += 2) {
+      if (mask[i] < 0.5) continue;
+      const R = d[i * 4], G = d[i * 4 + 1], B = d[i * 4 + 2], sum = R + G + B;
+      if (sum < 30) continue; // very dark pixels have unreliable colour
+      r += R / sum; g += G / sum; b += B / sum; n++;
+    }
+    return n > 20 ? [r / n, g / n, b / n] : null;
   }
 
   private medianLuminance(mask: Float32Array): number {
@@ -283,8 +315,9 @@ export class PaintSession {
     if (!s) return;
     if (this.state.live) {
       s.seeds = [[nx, ny]];
-      this.prevThumb = null;
-      this.processLive(true, this.state.selected);
+      s.prob = null;
+      s.rejects = 0;
+      this.detectTick(this.state.selected, true);
       return;
     }
     this.pushHistory();
@@ -440,55 +473,142 @@ export class PaintSession {
   startLive(video: HTMLVideoElement) {
     this.stopLive();
     this.video = video;
-    const keep = this.surfaces.map((s) => ({ ...s, seeds: [] as Array<[number, number]>, seg: null, add: null, erase: null, mask: null, base: 0.5 }));
+    const keep = this.surfaces.map((s) => ({ ...s, seeds: [] as Array<[number, number]>, seg: null, add: null, erase: null, mask: null, base: 0.5, chroma: null, prob: null, rejects: 0 }));
     this.surfaces = keep.length ? keep : [this.blankSurface(this.defaultShade())];
     this.undoStack = [];
     this.redoStack = [];
     this.prepareAnalysis(video, video.videoWidth, video.videoHeight, MAX_LIVE_ANALYSIS);
     this.renderer.setImageSource(video);
+    const land = video.videoWidth >= video.videoHeight;
+    this.thumbW = land ? THUMB : Math.round((THUMB * video.videoWidth) / video.videoHeight);
+    this.thumbH = land ? Math.round((THUMB * video.videoHeight) / video.videoWidth) : THUMB;
+    this.thumbCanvas.width = this.thumbW;
+    this.thumbCanvas.height = this.thumbH;
     this.prevThumb = null;
+    this.liveXf = IDENTITY;
+    this.renderer.setMaskTransform(IDENTITY);
     this.sync({ ready: true, live: true, sourceKind: "live", compare: false, tool: "tap", aspect: video.videoWidth / video.videoHeight });
     if (this.state.detector === "ai" && this.ai.status === "idle") void this.ai.load();
-    const loop = (t: number) => {
-      this.liveRaf = requestAnimationFrame(loop);
-      if (!this.video || this.video.readyState < 2) return;
-      if (t - this.lastTick > 110) {
-        this.lastTick = t;
-        this.processLive(false);
-      }
-      this.renderer.render();
+
+    // Process every new camera frame: track motion, occasionally re-detect, render.
+    const gen = ++this.liveGen;
+    type VfcVideo = HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number; cancelVideoFrameCallback?: (id: number) => void };
+    const v = video as VfcVideo;
+    const step = () => {
+      if (gen !== this.liveGen || !this.video) return;
+      if (this.video.readyState >= 2) this.onLiveFrame(performance.now());
+      if (v.requestVideoFrameCallback) this.liveVfc = v.requestVideoFrameCallback(step);
+      else this.liveRaf = requestAnimationFrame(step);
     };
-    this.liveRaf = requestAnimationFrame(loop);
+    if (v.requestVideoFrameCallback) this.liveVfc = v.requestVideoFrameCallback(step);
+    else this.liveRaf = requestAnimationFrame(step);
   }
 
-  private processLive(force: boolean, only?: number) {
+  private onLiveFrame(now: number) {
+    const v = this.video!;
+    // 1. Camera motion since the previous frame, from a small luminance thumbnail.
+    this.tctx.drawImage(v, 0, 0, this.thumbW, this.thumbH);
+    const thumb = lumaThumb(this.tctx.getImageData(0, 0, this.thumbW, this.thumbH).data, this.thumbW, this.thumbH);
+    if (this.prevThumb) {
+      const motion = estimateMotion(this.prevThumb, thumb, this.thumbW, this.thumbH, 6);
+      if (motion.confidence > 0) {
+        this.liveXf = composeAffine(this.liveXf, invertAffine(motion.xf));
+        for (const s of this.surfaces) s.seeds = s.seeds.map(([x, y]) => applyAffine(motion.xf, x, y).map((c) => Math.min(0.99, Math.max(0.01, c))) as [number, number]);
+      }
+    }
+    this.prevThumb = thumb;
+    // 2. Re-detect one wall every ~100 ms.
+    if (now - this.lastTick > DETECT_INTERVAL) {
+      this.lastTick = now;
+      this.detectTick();
+    }
+    // 3. Draw with the masks warped onto this exact frame.
+    this.renderer.setMaskTransform(this.liveXf);
+    this.renderer.render();
+  }
+
+  /**
+   * Brings every mask into the current frame, then detects one wall and fuses
+   * the result with its history (outlier rejection + hysteresis), so the paint
+   * neither flickers nor lags behind camera movement.
+   */
+  private detectTick(only?: number, reset = false) {
     const v = this.video;
     if (!v || !v.videoWidth) return;
     this.prepareAnalysis(v, v.videoWidth, v.videoHeight, MAX_LIVE_ANALYSIS);
-    // Track camera motion so seeds stay on their walls.
-    this.tctx.drawImage(v, 0, 0, 80, 60);
-    const thumb = lumaThumb(this.tctx.getImageData(0, 0, 80, 60).data, 80, 60);
-    if (this.prevThumb) {
-      const [dx, dy] = estimateShift(this.prevThumb, thumb, 80, 60, 6);
-      if (dx || dy) for (const s of this.surfaces) s.seeds = s.seeds.map(([x, y]) => [Math.min(0.99, Math.max(0.01, x + dx / 80)), Math.min(0.99, Math.max(0.01, y + dy / 60))] as [number, number]);
+    const w = this.maskW, h = this.maskH, n = w * h;
+    const moved = this.liveXf.some((x, i) => Math.abs(x - IDENTITY[i]) > 1e-4);
+    for (const s of this.surfaces) {
+      if (s.seg && s.seg.length !== n) { s.seg = null; s.prob = null; }
+      if (moved && s.seg) {
+        s.seg = warpMask(s.seg, w, h, this.liveXf);
+        if (s.prob) s.prob = warpMask(s.prob, w, h, this.liveXf, undefined, -1);
+      }
     }
-    this.prevThumb = thumb;
+    this.liveXf = IDENTITY;
+    this.renderer.setMaskTransform(IDENTITY);
+
     const active = this.surfaces.map((s, i) => (s.seeds.length ? i : -1)).filter((i) => i >= 0);
-    if (!active.length) return;
-    // One detection per tick, round-robin, keeps the frame rate steady on mid-range phones.
-    const list = only !== undefined ? [only] : force ? active : [active[this.robin++ % active.length]];
-    for (const i of list) {
-      const s = this.surfaces[i];
+    const target = only ?? (active.length ? active[this.robin++ % active.length] : -1);
+    const s = this.surfaces[target];
+    if (s && s.seeds.length) {
       const r = this.detect(s.seeds);
-      if (!r) continue;
-      const prev = s.seg;
-      if (prev && prev.length === r.mask.length && !force) for (let k = 0; k < r.mask.length; k++) r.mask[k] = prev[k] * 0.4 + r.mask[k] * 0.6;
-      s.seg = r.mask;
-      s.method = r.method;
-      this.compose(s);
-      if (s.mask) s.seeds = [recentreSeed(s.mask, this.maskW, this.maskH, s.seeds[0])];
+      if (r) {
+        s.method = r.method;
+        this.fuse(s, r.mask, reset, w, h);
+        if (s.seg) {
+          const chroma = this.meanChroma(s.seg);
+          if (chroma) s.chroma = s.chroma ? (s.chroma.map((c, k) => c * 0.7 + chroma[k] * 0.3) as [number, number, number]) : chroma;
+          const base = this.medianLuminance(s.seg);
+          s.base = reset || !s.mask ? base : s.base * 0.8 + base * 0.2;
+          s.seeds = [recentreSeed(s.seg, w, h, s.seeds[0])];
+        }
+      }
     }
+    for (const x of this.surfaces) x.mask = x.seg;
     this.sync();
+  }
+
+  private fuse(s: Surface, d: Float32Array, reset: boolean, w: number, h: number) {
+    const n = d.length;
+    if (reset || !s.seg || !s.prob || s.prob.length !== n) {
+      s.seg = d;
+      s.prob = d.slice();
+      s.rejects = 0;
+      return;
+    }
+    // A detection that suddenly disagrees with the tracked wall is usually a
+    // glitch; ignore up to three in a row before trusting it.
+    if (maskIoU(s.seg, d) < 0.3 && (s.rejects ?? 0) < 3) {
+      s.rejects = (s.rejects ?? 0) + 1;
+      return;
+    }
+    if ((s.rejects ?? 0) >= 3) {
+      s.seg = d;
+      s.prob = d.slice();
+      s.rejects = 0;
+      return;
+    }
+    s.rejects = 0;
+    const prob = s.prob, prev = s.seg;
+    const state = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      if (prob[i] < 0) {
+        // Newly visible area (camera moved): no history, trust this detection.
+        prob[i] = d[i];
+        state[i] = d[i] > 0.5 ? 1 : 0;
+        continue;
+      }
+      const p = prob[i] * 0.55 + d[i] * 0.45;
+      prob[i] = p;
+      // Hysteresis: a pixel turns on above 0.6 and off below 0.3, so single
+      // noisy detections can't make it blink.
+      state[i] = prev[i] > 0.5 ? (p > 0.3 ? 1 : 0) : (p > 0.6 ? 1 : 0);
+    }
+    const kept = keepSeedRegions(state, w, h, s.seeds, 8);
+    const out = new Float32Array(n);
+    for (let i = 0; i < n; i++) out[i] = kept[i];
+    s.seg = out;
   }
 
   /** Freezes the current camera frame into an editable photo, keeping painted walls. */
@@ -505,8 +625,12 @@ export class PaintSession {
   }
 
   stopLive() {
+    this.liveGen++;
     if (this.liveRaf) cancelAnimationFrame(this.liveRaf);
     this.liveRaf = 0;
+    const v = this.video as (HTMLVideoElement & { cancelVideoFrameCallback?: (id: number) => void }) | null;
+    if (v && this.liveVfc && v.cancelVideoFrameCallback) v.cancelVideoFrameCallback(this.liveVfc);
+    this.liveVfc = 0;
     this.video = null;
     if (this.state?.live) this.patch({ live: false });
   }
@@ -561,6 +685,16 @@ export class PaintSession {
     });
     if (!this.surfaces.length) this.surfaces = [this.blankSurface(this.defaultShade())];
     this.sync({ selected: 0 });
+  }
+
+  /** Back to the empty state (no picture loaded). */
+  clear() {
+    this.stopLive();
+    this.undoStack = [];
+    this.redoStack = [];
+    this.surfaces = this.surfaces.slice(0, 1).map((s) => this.blankSurface(s.shadeId, s.finish));
+    if (!this.surfaces.length) this.surfaces = [this.blankSurface(this.defaultShade())];
+    this.patch({ ready: false, live: false, compare: false, surfaces: this.views(), canUndo: false, canRedo: false });
   }
 
   dispose() {

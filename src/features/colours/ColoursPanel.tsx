@@ -26,7 +26,7 @@ function pairingsFor(s: Shade, all: Shade[]): Shade[] {
 }
 
 export function ColoursPanel() {
-  const { cat, session, shade, favourites, toggleFavourite, match, setMatch, setTab, product } = useStore();
+  const { cat, session, shade, favourites, toggleFavourite, match, setMatch } = useStore();
   const st = useSessionState(session);
   const apply = useApplyShade();
   const [query, setQuery] = useState("");
@@ -45,7 +45,6 @@ export function ColoursPanel() {
   }, [cat.shades, query, family, favourites]);
 
   const fav = current ? favourites.includes(current.id) : false;
-  const products = current ? cat.products.filter((p) => !current.products || current.products.includes(p.id)) : [];
 
   return (
     <div className="panel-section" style={{ display: "grid", gap: 16 }}>
@@ -90,9 +89,7 @@ export function ColoursPanel() {
               <button type="button" className="btn small" aria-pressed={fav} onClick={() => toggleFavourite(current.id)}>
                 <Icon name="star" fill={fav ? "currentColor" : "none"} />{fav ? "Saved" : "Save colour"}
               </button>
-              <button type="button" className="btn small" onClick={() => setTab("buy")}><Icon name="bag" />Where to buy</button>
             </div>
-            {products.length > 0 && <p className="fine">Available in {products.map((p) => product(p.id)?.name).join(", ")}.</p>}
           </div>
         </section>
       )}

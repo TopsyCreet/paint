@@ -20,8 +20,10 @@ export interface Brand {
   whatsappFallback?: string;
   disclaimer: string;
   segmentation: {
-    /** URL of the MediaPipe interactive segmentation model (.tflite). */
+    /** URL of the MediaPipe interactive segmentation model (.tflite). Relative paths are served by this app. */
     modelUrl: string;
+    /** Tried when `modelUrl` can't be loaded (e.g. Google's hosted copy). */
+    modelFallbackUrl?: string;
     /** Folder holding the MediaPipe vision WASM runtime, relative to the app. */
     wasmBase: string;
     /** Set false to always use the built-in edge-based detector. */

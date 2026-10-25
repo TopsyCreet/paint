@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "node e2e/run.mjs"
+    "e2e": "node e2e/run.mjs",
+    "deploy": "bash scripts/deploy-gh-pages.sh"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.35",

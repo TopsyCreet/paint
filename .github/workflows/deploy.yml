@@ -26,11 +26,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Fetch the wall detection model (served by the app itself)
-        run: |
-          mkdir -p public/models
-          curl -fsSL --retry 3 -o public/models/magic_touch.tflite \
-            https://storage.googleapis.com/mediapipe-models/interactive_segmenter/magic_touch/float32/1/magic_touch.tflite
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

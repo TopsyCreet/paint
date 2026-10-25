@@ -37,6 +37,8 @@ Node 20 or newer.
 2. In the repository, open **Settings → Pages**: **Source** = Deploy from a branch, **Branch** = `gh-pages`, folder `/ (root)`.
 3. Every push to `main` runs type checks, tests and the build, then publishes `dist/` to the `gh-pages` branch (for this repo: `https://<user>.github.io/paint/`).
 
+If GitHub Actions is unavailable (for example a billing lock on the account), run `npm run deploy` to build and publish `gh-pages` from your own machine.
+
 Do not point Pages at `main`: that branch holds source code, which browsers can't run directly (you'd see a blank page).
 
 The build uses relative paths, so it also works on a custom domain or any static host (Netlify, Vercel, Cloudflare Pages, cPanel).

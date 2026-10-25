@@ -13,8 +13,7 @@
   "whatsappFallback": "",
   "disclaimer": "Colours on screen are a guide and vary between phones and lighting. Check a physical colour card or sample pot before you buy.",
   "segmentation": {
-    "modelUrl": "models/magic_touch.tflite",
-    "modelFallbackUrl": "https://storage.googleapis.com/mediapipe-models/interactive_segmenter/magic_touch/float32/1/magic_touch.tflite",
+    "modelUrl": "https://storage.googleapis.com/mediapipe-models/interactive_segmenter/magic_touch/float32/1/magic_touch.tflite",
     "wasmBase": "vendor/mediapipe/wasm",
     "enabled": true
   },

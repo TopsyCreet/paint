@@ -1,0 +1,100 @@
+[
+  {
+    "id": "matt",
+    "name": "Interior Matt Emulsion",
+    "finish": "matt",
+    "use": "interior",
+    "coverage": 12,
+    "sizes": [
+      {
+        "litres": 1,
+        "price": 6800
+      },
+      {
+        "litres": 4,
+        "price": 24500
+      },
+      {
+        "litres": 20,
+        "price": 108000
+      }
+    ],
+    "description": "Smooth, low-sheen finish for living rooms and bedrooms."
+  },
+  {
+    "id": "silk",
+    "name": "Interior Silk Emulsion",
+    "finish": "silk",
+    "use": "interior",
+    "coverage": 11,
+    "sizes": [
+      {
+        "litres": 1,
+        "price": 7900
+      },
+      {
+        "litres": 4,
+        "price": 28500
+      },
+      {
+        "litres": 20,
+        "price": 126000
+      }
+    ],
+    "description": "Soft sheen that wipes clean. Good for kitchens, halls and children's rooms."
+  },
+  {
+    "id": "satin",
+    "name": "Satin Wood & Metal",
+    "finish": "satin",
+    "use": "both",
+    "coverage": 14,
+    "sizes": [
+      {
+        "litres": 1,
+        "price": 9200
+      },
+      {
+        "litres": 4,
+        "price": 34000
+      }
+    ],
+    "description": "Hard-wearing satin finish for doors, frames and railings."
+  },
+  {
+    "id": "ext",
+    "name": "Exterior Weathercoat",
+    "finish": "matt",
+    "use": "exterior",
+    "coverage": 9,
+    "sizes": [
+      {
+        "litres": 4,
+        "price": 31000
+      },
+      {
+        "litres": 20,
+        "price": 139000
+      }
+    ],
+    "description": "Fade- and mould-resistant protection for outside walls through rainy season and harmattan."
+  },
+  {
+    "id": "gloss",
+    "name": "High Gloss Enamel",
+    "finish": "gloss",
+    "use": "both",
+    "coverage": 15,
+    "sizes": [
+      {
+        "litres": 1,
+        "price": 8800
+      },
+      {
+        "litres": 4,
+        "price": 32500
+      }
+    ],
+    "description": "Bright, tough gloss for gates, grills and trims."
+  }
+]

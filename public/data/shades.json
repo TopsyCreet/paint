@@ -1,0 +1,378 @@
+{
+  "families": [
+    {
+      "id": "white",
+      "label": "Whites & creams"
+    },
+    {
+      "id": "neutral",
+      "label": "Greige & stone"
+    },
+    {
+      "id": "earth",
+      "label": "Warm earth"
+    },
+    {
+      "id": "yellow",
+      "label": "Yellows"
+    },
+    {
+      "id": "green",
+      "label": "Greens"
+    },
+    {
+      "id": "blue",
+      "label": "Blues"
+    },
+    {
+      "id": "red",
+      "label": "Reds & pinks"
+    },
+    {
+      "id": "purple",
+      "label": "Purples"
+    },
+    {
+      "id": "dark",
+      "label": "Deep & dark"
+    }
+  ],
+  "shades": [
+    {
+      "id": "agbada-white",
+      "name": "Agbada White",
+      "code": "CS-101",
+      "hex": "#EFEBE3",
+      "family": "white"
+    },
+    {
+      "id": "coconut-milk",
+      "name": "Coconut Milk",
+      "code": "CS-102",
+      "hex": "#F3EEE4",
+      "family": "white"
+    },
+    {
+      "id": "harmattan-haze",
+      "name": "Harmattan Haze",
+      "code": "CS-103",
+      "hex": "#E6DCCB",
+      "family": "white"
+    },
+    {
+      "id": "aso-oke-linen",
+      "name": "Aso-Oke Linen",
+      "code": "CS-104",
+      "hex": "#E9E1D2",
+      "family": "white"
+    },
+    {
+      "id": "cotton-boll",
+      "name": "Cotton Boll",
+      "code": "CS-105",
+      "hex": "#F6F4EE",
+      "family": "white"
+    },
+    {
+      "id": "kaolin-chalk",
+      "name": "Kaolin Chalk",
+      "code": "CS-106",
+      "hex": "#EDEAE2",
+      "family": "white"
+    },
+    {
+      "id": "jos-plateau-mist",
+      "name": "Jos Plateau Mist",
+      "code": "CS-201",
+      "hex": "#DCDDD8",
+      "family": "neutral"
+    },
+    {
+      "id": "zuma-rock",
+      "name": "Zuma Rock",
+      "code": "CS-202",
+      "hex": "#8F8478",
+      "family": "neutral"
+    },
+    {
+      "id": "ikoyi-stone",
+      "name": "Ikoyi Stone",
+      "code": "CS-203",
+      "hex": "#C9C0B3",
+      "family": "neutral"
+    },
+    {
+      "id": "calabash",
+      "name": "Calabash",
+      "code": "CS-204",
+      "hex": "#B9A88E",
+      "family": "neutral"
+    },
+    {
+      "id": "laterite-dust",
+      "name": "Laterite Dust",
+      "code": "CS-205",
+      "hex": "#BCA48A",
+      "family": "neutral"
+    },
+    {
+      "id": "lagos-pebble",
+      "name": "Lagos Pebble",
+      "code": "CS-206",
+      "hex": "#A8A39A",
+      "family": "neutral"
+    },
+    {
+      "id": "lekki-sand",
+      "name": "Lekki Sand",
+      "code": "CS-301",
+      "hex": "#D8C3A1",
+      "family": "earth"
+    },
+    {
+      "id": "palm-wine",
+      "name": "Palm Wine",
+      "code": "CS-302",
+      "hex": "#E8D9B5",
+      "family": "earth"
+    },
+    {
+      "id": "laterite-road",
+      "name": "Laterite Road",
+      "code": "CS-303",
+      "hex": "#B8643F",
+      "family": "earth"
+    },
+    {
+      "id": "kola-nut",
+      "name": "Kola Nut",
+      "code": "CS-304",
+      "hex": "#A4553A",
+      "family": "earth"
+    },
+    {
+      "id": "suya-spice",
+      "name": "Suya Spice",
+      "code": "CS-305",
+      "hex": "#9A4A2C",
+      "family": "earth"
+    },
+    {
+      "id": "benin-bronze",
+      "name": "Benin Bronze",
+      "code": "CS-306",
+      "hex": "#8C5A2E",
+      "family": "earth"
+    },
+    {
+      "id": "garri-cream",
+      "name": "Garri Cream",
+      "code": "CS-401",
+      "hex": "#F1E3B8",
+      "family": "yellow"
+    },
+    {
+      "id": "ankara-gold",
+      "name": "Ankara Gold",
+      "code": "CS-402",
+      "hex": "#D9A02E",
+      "family": "yellow"
+    },
+    {
+      "id": "plantain-ripe",
+      "name": "Plantain Ripe",
+      "code": "CS-403",
+      "hex": "#E9C04A",
+      "family": "yellow"
+    },
+    {
+      "id": "groundnut",
+      "name": "Groundnut",
+      "code": "CS-404",
+      "hex": "#D7B47A",
+      "family": "yellow"
+    },
+    {
+      "id": "akara-glow",
+      "name": "Akara Glow",
+      "code": "CS-405",
+      "hex": "#E5A64B",
+      "family": "yellow"
+    },
+    {
+      "id": "okra-green",
+      "name": "Okra Green",
+      "code": "CS-501",
+      "hex": "#8E9B6E",
+      "family": "green"
+    },
+    {
+      "id": "yankari-sage",
+      "name": "Yankari Sage",
+      "code": "CS-502",
+      "hex": "#B7BFA0",
+      "family": "green"
+    },
+    {
+      "id": "obudu-mist",
+      "name": "Obudu Mist",
+      "code": "CS-503",
+      "hex": "#A9BBA8",
+      "family": "green"
+    },
+    {
+      "id": "ofada-leaf",
+      "name": "Ofada Leaf",
+      "code": "CS-504",
+      "hex": "#5E7454",
+      "family": "green"
+    },
+    {
+      "id": "agege-palm",
+      "name": "Agege Palm",
+      "code": "CS-505",
+      "hex": "#3F5B45",
+      "family": "green"
+    },
+    {
+      "id": "cocoa-leaf",
+      "name": "Cocoa Leaf",
+      "code": "CS-506",
+      "hex": "#6F8A5A",
+      "family": "green"
+    },
+    {
+      "id": "lagoon-dawn",
+      "name": "Lagoon Dawn",
+      "code": "CS-601",
+      "hex": "#9DB7C6",
+      "family": "blue"
+    },
+    {
+      "id": "bar-beach-blue",
+      "name": "Bar Beach Blue",
+      "code": "CS-602",
+      "hex": "#5C86A6",
+      "family": "blue"
+    },
+    {
+      "id": "calabar-teal",
+      "name": "Calabar Teal",
+      "code": "CS-603",
+      "hex": "#2E7C7A",
+      "family": "blue"
+    },
+    {
+      "id": "adire-indigo",
+      "name": "Adire Indigo",
+      "code": "CS-604",
+      "hex": "#2F3E66",
+      "family": "blue"
+    },
+    {
+      "id": "kainji-water",
+      "name": "Kainji Water",
+      "code": "CS-605",
+      "hex": "#7FA8B5",
+      "family": "blue"
+    },
+    {
+      "id": "harbour-sky",
+      "name": "Harbour Sky",
+      "code": "CS-606",
+      "hex": "#C3D6DF",
+      "family": "blue"
+    },
+    {
+      "id": "jollof-ember",
+      "name": "Jollof Ember",
+      "code": "CS-701",
+      "hex": "#C8452C",
+      "family": "red"
+    },
+    {
+      "id": "agbalumo-orange",
+      "name": "Agbalumo Orange",
+      "code": "CS-702",
+      "hex": "#E07B39",
+      "family": "red"
+    },
+    {
+      "id": "zobo-red",
+      "name": "Zobo Red",
+      "code": "CS-703",
+      "hex": "#8A2338",
+      "family": "red"
+    },
+    {
+      "id": "hibiscus-pink",
+      "name": "Hibiscus Pink",
+      "code": "CS-704",
+      "hex": "#D9809A",
+      "family": "red"
+    },
+    {
+      "id": "owambe-coral",
+      "name": "Owambe Coral",
+      "code": "CS-705",
+      "hex": "#E58F72",
+      "family": "red"
+    },
+    {
+      "id": "eko-dusk",
+      "name": "Eko Dusk",
+      "code": "CS-801",
+      "hex": "#6E6F92",
+      "family": "purple"
+    },
+    {
+      "id": "aso-ebi-plum",
+      "name": "Aso-Ebi Plum",
+      "code": "CS-802",
+      "hex": "#5E3355",
+      "family": "purple"
+    },
+    {
+      "id": "lavender-gele",
+      "name": "Lavender Gele",
+      "code": "CS-803",
+      "hex": "#B4A6C7",
+      "family": "purple"
+    },
+    {
+      "id": "ube-purple",
+      "name": "Ube Purple",
+      "code": "CS-804",
+      "hex": "#7A4E7E",
+      "family": "purple"
+    },
+    {
+      "id": "charcoal-pot",
+      "name": "Charcoal Pot",
+      "code": "CS-901",
+      "hex": "#3A3A3C",
+      "family": "dark"
+    },
+    {
+      "id": "ebony-carving",
+      "name": "Ebony Carving",
+      "code": "CS-902",
+      "hex": "#2B2420",
+      "family": "dark"
+    },
+    {
+      "id": "night-market",
+      "name": "Night Market",
+      "code": "CS-903",
+      "hex": "#24303F",
+      "family": "dark"
+    },
+    {
+      "id": "mangrove-deep",
+      "name": "Mangrove Deep",
+      "code": "CS-904",
+      "hex": "#1F3B34",
+      "family": "dark"
+    }
+  ]
+}

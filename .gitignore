@@ -1,0 +1,7 @@
+node_modules/
+dist/
+public/vendor/
+e2e/out/
+*.log
+.DS_Store
+.env*

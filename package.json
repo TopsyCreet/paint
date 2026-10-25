@@ -1,0 +1,35 @@
+{
+  "name": "colour-studio",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Paint colour visualizer PWA for Nigerian paint brands: AR wall painting, colour catalogue, paint calculator and distributor ordering.",
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/copy-wasm.mjs",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "node e2e/run.mjs"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "0.10.35",
+    "leaflet": "1.9.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/leaflet": "1.9.22",
+    "@types/node": "22.18.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "6.0.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}

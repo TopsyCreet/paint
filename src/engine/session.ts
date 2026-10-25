@@ -120,6 +120,8 @@ export class PaintSession {
   private thumbCanvas = document.createElement("canvas");
   private tctx = this.thumbCanvas.getContext("2d", { willReadFrequently: true })!;
   onNotice: (msg: string) => void = () => {};
+  /** false reproduces the earlier live method (no per-frame warping or fusion), for A/B benchmarks. */
+  stabilise = true;
 
   constructor(canvas: HTMLCanvasElement, ai: AiSegmenter, private defaultShade: () => string) {
     this.renderer = new PaintRenderer(canvas);
@@ -523,7 +525,7 @@ export class PaintSession {
       this.detectTick();
     }
     // 3. Draw with the masks warped onto this exact frame.
-    this.renderer.setMaskTransform(this.liveXf);
+    this.renderer.setMaskTransform(this.stabilise ? this.liveXf : IDENTITY);
     this.renderer.render();
   }
 
@@ -537,7 +539,7 @@ export class PaintSession {
     if (!v || !v.videoWidth) return;
     this.prepareAnalysis(v, v.videoWidth, v.videoHeight, MAX_LIVE_ANALYSIS);
     const w = this.maskW, h = this.maskH, n = w * h;
-    const moved = this.liveXf.some((x, i) => Math.abs(x - IDENTITY[i]) > 1e-4);
+    const moved = this.stabilise && this.liveXf.some((x, i) => Math.abs(x - IDENTITY[i]) > 1e-4);
     for (const s of this.surfaces) {
       if (s.seg && s.seg.length !== n) { s.seg = null; s.prob = null; }
       if (moved && s.seg) {
@@ -555,7 +557,12 @@ export class PaintSession {
       const r = this.detect(s.seeds);
       if (r) {
         s.method = r.method;
-        this.fuse(s, r.mask, reset, w, h);
+        if (this.stabilise) this.fuse(s, r.mask, reset, w, h);
+        else {
+          const prev = s.seg;
+          if (prev && prev.length === r.mask.length && !reset) for (let k = 0; k < r.mask.length; k++) r.mask[k] = prev[k] * 0.4 + r.mask[k] * 0.6;
+          s.seg = r.mask;
+        }
         if (s.seg) {
           const chroma = this.meanChroma(s.seg);
           if (chroma) s.chroma = s.chroma ? (s.chroma.map((c, k) => c * 0.7 + chroma[k] * 0.3) as [number, number, number]) : chroma;

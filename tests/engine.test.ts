@@ -85,6 +85,14 @@ describe("motion model", () => {
     expect(m.confidence).toBeGreaterThan(0.3);
   });
 
+  it("catches a fast pan beyond the fine search range", () => {
+    const w = 96, h = 72;
+    const m = estimateMotion(texture(w, h), texture(w, h, 10, 7), w, h, 6);
+    const [x, y] = applyAffine(m.xf, 0.5, 0.5);
+    expect(Math.round(x * w - 0.5 * w)).toBe(10);
+    expect(Math.round(y * h - 0.5 * h)).toBe(7);
+  });
+
   it("reports no motion on a blank wall", () => {
     const w = 96, h = 72, flat = new Float32Array(w * h).fill(200);
     const m = estimateMotion(flat, flat, w, h);

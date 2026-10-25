@@ -47,7 +47,7 @@ export function estimateShift(prev: Float32Array, cur: Float32Array, w: number, 
 
 interface BlockResult { dx: number; dy: number; weight: number }
 
-function blockShift(prev: Float32Array, cur: Float32Array, w: number, h: number, y0: number, y1: number, x0: number, x1: number, m: number, step = 1): BlockResult {
+function blockShift(prev: Float32Array, cur: Float32Array, w: number, h: number, y0: number, y1: number, x0: number, x1: number, m: number, step = 1, ox = 0, oy = 0): BlockResult {
   let best = Infinity, bx = 0, by = 0, sumScores = 0, nScores = 0;
   // Texture of the block: flat blocks (plain wall) give no reliable motion.
   let mean = 0, n0 = 0;
@@ -56,8 +56,8 @@ function blockShift(prev: Float32Array, cur: Float32Array, w: number, h: number,
   let varSum = 0;
   for (let y = y0; y < y1; y += step) for (let x = x0; x < x1; x += step) { const d = prev[y * w + x] - mean; varSum += d * d; }
   const std = Math.sqrt(varSum / Math.max(1, n0));
-  for (let dy = -m; dy <= m; dy++) {
-    for (let dx = -m; dx <= m; dx++) {
+  for (let dy = oy - m; dy <= oy + m; dy++) {
+    for (let dx = ox - m; dx <= ox + m; dx++) {
       let sum = 0, n = 0;
       for (let y = y0; y < y1; y += step) {
         const yc = y + dy;
@@ -70,7 +70,7 @@ function blockShift(prev: Float32Array, cur: Float32Array, w: number, h: number,
         }
       }
       if (!n) continue;
-      const score = sum / n + 0.02 * (Math.abs(dx) + Math.abs(dy));
+      const score = sum / n + 0.02 * (Math.abs(dx - ox) + Math.abs(dy - oy));
       sumScores += score;
       nScores++;
       if (score < best) { best = score; bx = dx; by = dy; }
@@ -94,21 +94,40 @@ export interface Motion {
  * Similarity-transform motion between two thumbnails. Falls back to pure
  * translation when too few blocks are trackable, and to no motion when none are.
  */
+function half(src: Float32Array, w: number, h: number): Float32Array {
+  const hw = w >> 1, hh = h >> 1, o = new Float32Array(hw * hh);
+  for (let y = 0; y < hh; y++) for (let x = 0; x < hw; x++) {
+    const i = 2 * y * w + 2 * x;
+    o[y * hw + x] = (src[i] + src[i + 1] + src[i + w] + src[i + w + 1]) / 4;
+  }
+  return o;
+}
+
 export function estimateMotion(prev: Float32Array, cur: Float32Array, w: number, h: number, maxShift = 6, grid = 3): Motion {
+  // Coarse-to-fine: a global search at half resolution catches fast pans
+  // (up to 2·maxShift pixels), then blocks refine around it at full resolution.
+  const hw = w >> 1, hh = h >> 1;
+  const coarse = blockShift(half(prev, w, h), half(cur, w, h), hw, hh, maxShift, hh - maxShift, maxShift, hw - maxShift, maxShift, 1);
+  const ox = coarse.weight > 0.02 ? coarse.dx * 2 : 0, oy = coarse.weight > 0.02 ? coarse.dy * 2 : 0;
+  const fine = 3;
   const pts: Array<{ x: number; y: number; dx: number; dy: number; wt: number }> = [];
   const bw = Math.floor(w / grid), bh = Math.floor(h / grid);
   for (let gy = 0; gy < grid; gy++) {
     for (let gx = 0; gx < grid; gx++) {
       const x0 = gx * bw + (gx === 0 ? maxShift : 1), x1 = (gx + 1) * bw - (gx === grid - 1 ? maxShift : 1);
       const y0 = gy * bh + (gy === 0 ? maxShift : 1), y1 = (gy + 1) * bh - (gy === grid - 1 ? maxShift : 1);
-      const r = blockShift(prev, cur, w, h, y0, y1, x0, x1, maxShift, 1);
+      const r = blockShift(prev, cur, w, h, y0, y1, x0, x1, fine, 1, ox, oy);
       pts.push({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, dx: r.dx, dy: r.dy, wt: r.weight });
     }
   }
   const W = pts.reduce((s, p) => s + p.wt, 0);
   const strong = pts.filter((p) => p.wt > 0.05).length;
   const confidence = Math.min(1, W / (grid * grid * 0.35));
-  if (W < 0.05) return { xf: IDENTITY, confidence: 0 };
+  if (W < 0.05) {
+    // Blocks too flat to trust individually; use the global estimate if it is reliable.
+    if (coarse.weight > 0.05 && (ox || oy)) return { xf: [1, 0, ox / w, 0, 1, oy / h], confidence: Math.min(1, coarse.weight) };
+    return { xf: IDENTITY, confidence: 0 };
+  }
 
   // Weighted centroids of source and target points.
   let sx = 0, sy = 0, tx = 0, ty = 0;

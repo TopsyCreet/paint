@@ -11,6 +11,7 @@ import { shareImage } from "../../lib/share";
 import { Icon } from "../../ui/icons";
 import { useToast } from "../../ui/toast";
 import type { Finish } from "../../data/types";
+import { runBench } from "../bench/runBench";
 
 const FINISHES: Array<{ id: Finish; label: string }> = [
   { id: "matt", label: "Matt" },
@@ -76,8 +77,13 @@ export function Visualizer() {
     setSession(s);
     // Start loading the AI model early so it is ready by the first tap.
     if (seg.enabled) void ai.load();
+    const params = new URLSearchParams(location.search);
+    const bench = params.get("bench");
+    if (bench === "ai" || bench === "classic") {
+      setTimeout(() => { if (videoRef.current) void runBench(s, videoRef.current, bench, params.get("stable") !== "0", "hibiscus-pink"); }, 300);
+    }
     // Hidden demo scenes for pitches and automated tests: ?demo=living|bedroom|exterior
-    const demo = new URLSearchParams(location.search).get("demo");
+    const demo = params.get("demo");
     const room = demo ? SAMPLE_ROOMS.find((r) => r.id === demo) ?? SAMPLE_ROOMS[0] : null;
     if (room) {
       const c = room.draw();
